@@ -21,12 +21,13 @@ const userSchema = new mongoose.Schema({
         trim:true
     },
     phone:{
-        type:String,
-        required:true
+        type:String
     },
     password:{
         type:String,
-        required:true
+        required:function(){
+            return this.provider == providerEnum.google ? false : true
+        }
     },
     age:Number,
     gender:{

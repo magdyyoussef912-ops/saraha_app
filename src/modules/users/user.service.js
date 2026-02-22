@@ -1,5 +1,4 @@
-
-import { model } from "mongoose"
+import {OAuth2Client} from 'google-auth-library';
 import * as db_service from "../../DB/DB.service.js"
 import userModel from "../../DB/models/user.model.js"
 import { successeResponsive } from "../../common/utils/successResponsive.js"
@@ -7,6 +6,7 @@ import { Compare, Hash } from "../../common/utils/security/hash.security.js"
 import { encrypt } from "../../common/utils/security/encrypt.security.js"
 import { providerEnum } from "../../common/Enum/user.enum.js"
 import { generateToken } from "../../common/utils/token.service.js"
+import { SECRET_KEY } from '../../../config/config.service.js';
 
 export const signUp =  async(req,res,next)=>{
     const {userName,email,password,age,gender,provider,phone} = req.body
@@ -27,6 +27,45 @@ export const signUp =  async(req,res,next)=>{
     successeResponsive({res,message:"Done Create",data:user})
 }
 
+export const signUpWithGmail =  async(req,res,next)=>{
+    const {idToken} = req.body
+    const client = new OAuth2Client();
+    const ticket = await client.verifyIdToken({
+        idToken,
+        audience: "1062024282074-g830d7goohg80jhuk9hm0po33550snr6.apps.googleusercontent.com", 
+    });
+    const payload = ticket.getPayload();
+    const {email ,email_verified,name,picture} = payload
+
+    let user = await db_service.findOne({model:userModel,filter:{email}})
+    
+    if(!user){
+        user = await db_service.create(
+            {
+                model:userModel,
+                data:{
+                    email ,
+                    confirmed:email_verified,
+                    userName:name,
+                    profilePicture:picture,
+                    provider:providerEnum.google
+                }
+            })
+    }
+
+    if (user.provider == providerEnum.system) {
+        throw new Error("Pls log in with system",{cause:400});
+    }
+
+    const access_token = generateToken({
+        payload:{id:user._id,email},
+        secret_key:SECRET_KEY,
+        options:{expiresIn:"1day"}
+    })
+    successeResponsive({res,status:201,data:access_token})
+}
+
+
 
 export const signIn = async (req ,res, next)=>{
     const {email , password} = req.body
@@ -37,7 +76,7 @@ export const signIn = async (req ,res, next)=>{
     if (!Compare({plainText:password,cipherText:user.password})) {
         throw new Error("inValid password",{cause:409});        
     }
-    const access_token = generateToken({payload:{id:user._id,email:user.email},secret_key:"secret",options:{expiresIn:"1day"}})
+    const access_token = generateToken({payload:{id:user._id,email:user.email},secret_key:SECRET_KEY,options:{expiresIn:"1day"}})
     successeResponsive({res,status:200,data:access_token})
 }
 

@@ -1,4 +1,4 @@
-import { decode } from "jsonwebtoken";
+
 import { verifyToken } from "../utils/token.service.js";
 import  * as db_service from "../../DB/DB.service.js"
 import userModel from "../../DB/models/user.model.js";
@@ -17,8 +17,10 @@ export const authentication = async (req ,res , next)=>{
     if (!decoded || !decoded ?.id) {
         throw new Error("inValid Token");
     }
+    console.log(decoded);
+    
 
-    const user = await db_service.findOne({model:userModel,filter:{id:decoded.id},select:"-password"})
+    const user = await db_service.findOne({model:userModel,filter:{_id:decoded.id},select:"-password"})
     if (!user) {
         throw new Error("user Not Found",{cause:409});
     }

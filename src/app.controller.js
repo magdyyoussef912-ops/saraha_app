@@ -1,12 +1,15 @@
+
 import express from "express"
+import cors from "cors"
 import { successeResponsive } from "./common/utils/successResponsive.js"
 import checkConectionDb from "./DB/connectionDB.js"
 import userRouter from "./modules/users/user.controller.js"
+import { PORT } from "../config/config.service.js"
 const app = express()
-const port = 3000
+const port = PORT
 
 const bootstrap = ()=>{
-    app.use(express.json())
+    app.use(cors(),express.json())
     app.get("/",(req,res,next)=>{
         successeResponsive({res,status:201,message:"welcome in our server"})
     })
