@@ -9,7 +9,10 @@ import { generateToken } from "../../common/utils/token.service.js"
 import { SECRET_KEY } from '../../../config/config.service.js';
 
 export const signUp =  async(req,res,next)=>{
-    const {userName,email,password,age,gender,provider,phone} = req.body
+    const {userName,email,password,cPassword,age,gender,provider,phone} = req.body
+    if (password !== cPassword) {
+        throw new Error("inValid cPassword",{cause:409});        
+    }
     if (await db_service.findOne({model:userModel,filter:{email}})) {
         throw new Error("email already Exist",{cause:409});
     }
