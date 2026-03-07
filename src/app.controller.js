@@ -5,6 +5,7 @@ import { successeResponsive } from "./common/utils/successResponsive.js"
 import checkConectionDb from "./DB/connectionDB.js"
 import userRouter from "./modules/users/user.controller.js"
 import { PORT } from "../config/config.service.js"
+import { deleteFileMulterLocal } from "./common/middleware/multer.js"
 const app = express()
 const port = PORT
 
@@ -22,6 +23,7 @@ const bootstrap = ()=>{
         throw new Error(`404 url ${req.originalUrl} is Not Found`,{cause:404});
     })
     app.use((err,req,res,next)=>{
+        deleteFileMulterLocal(req)
         return res.status(err.cause || 500).json({message:err.message,stack:err.stack})
     })
 }

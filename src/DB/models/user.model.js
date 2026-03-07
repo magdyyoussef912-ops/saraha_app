@@ -40,7 +40,14 @@ const userSchema = new mongoose.Schema({
         enum: Object.values(providerEnum),
         default:  providerEnum.system
     },
-    profilePicture:String,
+    profilePicture:{
+        secure_url:{type:String},
+        public_id:{type:String}
+    },
+    coverPicture:[{
+        secure_url:{type:String},
+        public_id:{type:String}
+    }],
     confirmed:Boolean,
     role:{
         type:String,

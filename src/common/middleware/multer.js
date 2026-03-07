@@ -1,3 +1,4 @@
+
 import multer from "multer";
 import fs from "node:fs"
 
@@ -25,4 +26,39 @@ export const multer_local = ({ costume_file="general", costume_types=[]}={})=>{
 
     const upload = multer({ fileFilter,storage })
     return upload
+}
+
+
+
+export const multer_host = ( costume_types=[])=>{
+    const storage = multer.diskStorage({})
+    function fileFilter (req, file, cb) {
+        if(!costume_types.includes(file.mimetype)){
+            cb(new Error("inValid file type"))
+        }
+        cb(null,true)
+    }
+
+    const upload = multer({ fileFilter,storage })
+    return upload
+}
+
+
+
+export const deleteFileMulterLocal = (req)=>{
+    if (req.file?.path) {
+        fs.unlinkSync(req.file.path)
+    }
+    if (Array.isArray(req.files)) {
+        req.files.forEach((file) => {
+            fs.unlinkSync(file.path)
+        });
+    }
+    if (req.files && typeof(req.files)==="object") {
+        Object.values(req.files).forEach((files)=>{
+            files.forEach((file)=>{
+                fs.unlinkSync(file.path)
+            })
+        })
+    }
 }
