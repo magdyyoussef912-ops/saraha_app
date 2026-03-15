@@ -28,3 +28,21 @@ export const shareProfileSchema = {
         id:generalRoles.id.required()
     }).required()
 }
+
+export const updateProfileSchema = {
+    body : joi.object({
+        firstName:joi.string().min(3).max(5),
+        lastName:joi.string().min(3).max(5),
+        phone:joi.string(),
+        gender:joi.string().valid(...Object.values(genderEnum)).default(genderEnum.male),
+        age:joi.number()
+    }).required()
+}
+
+export const updatePasswordSchema = {
+    body : joi.object({
+        lPassword:generalRoles.password.required(),
+        nPassword:generalRoles.password.required(),
+        cPassword:joi.string().valid(joi.ref("nPassword")).required()
+    }).required()
+}

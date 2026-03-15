@@ -48,6 +48,7 @@ const userSchema = new mongoose.Schema({
         secure_url:{type:String},
         public_id:{type:String}
     }],
+    changeCredential:Date,
     confirmed:Boolean,
     role:{
         type:String,

@@ -7,7 +7,10 @@ import { decrypt, encrypt } from "../../common/utils/security/encrypt.security.j
 import { providerEnum } from "../../common/Enum/user.enum.js"
 import { generateToken, verifyToken } from "../../common/utils/token.service.js"
 import { ACCESS_SECRET_KEY, PREFIX, REFRESH_SECRET_KEY } from '../../../config/config.service.js';
-import cloudinary from '../../common/utils/cloudinary.js';
+import {randomUUID} from "crypto"
+import revokeTokenModel from '../../DB/models/revokeToken.js';
+import { del, get, keys, revoked_id_token, revoked_token, setValue } from '../../DB/redis/redis.service.js';
+import cloudinary from "../../common/utils/cloudinary.js"
 
 export const signUp =  async(req,res,next)=>{
     const {userName,email,password,cPassword,age,gender,provider,phone} = req.body
@@ -87,8 +90,6 @@ export const signUpWithGmail =  async(req,res,next)=>{
     successeResponsive({res,status:201,data:access_token})
 }
 
-
-
 export const signIn = async (req ,res, next)=>{
     const {email , password} = req.body
     const user = await db_service.findOne({model:userModel,filter:{email,provider:providerEnum.system}})
@@ -98,24 +99,41 @@ export const signIn = async (req ,res, next)=>{
     if (!Compare({plainText:password,cipherText:user.password})) {
         throw new Error("inValid password",{cause:409});        
     }
+    const jwtid = randomUUID()
     const access_token = generateToken({
         payload:{id:user._id,email:user.email},
         secret_key:ACCESS_SECRET_KEY,
-        options:{expiresIn:60*5}
+        options:{expiresIn:60*3,
+            jwtid
+        }
     })
     const refresh_token = generateToken({
         payload:{id:user._id,email:user.email},
         secret_key:REFRESH_SECRET_KEY,
-        options:{expiresIn:"1day"}
+        options:{expiresIn:"1day",
+            jwtid
+        }
     })
     successeResponsive({res,status:200,data:{access_token,refresh_token}})
 }
 
-
 export const getProfile = async (req,res,next)=>{
-    successeResponsive({res,data:req.user})
+    // const key = `profile::${req.user}`
+    // const userExist = await get(key)
+    // if (userExist) {
+    //     successeResponsive({res,data:userExist})
+    // }
+    // await setValue({key,value:req.user,ttl:60})
+    successeResponsive({res,data:{
+        firstName:req.user.firstName,
+        lastName:req.user.lastName,
+        email:req.user.email,
+        age:req.user.age,
+        gender:req.user.gender,
+        provider:req.user.provider,
+        phone:decrypt(req.user.phone)
+    }})
 }
-
 
 export const shareProfile = async (req,res,next)=>{
     const {id} = req.params
@@ -127,6 +145,36 @@ export const shareProfile = async (req,res,next)=>{
     successeResponsive({res,data:user})
 }
 
+export const updateProfile = async (req,res,next)=>{
+    let {firstName,lastName,gender,age,phone} = req.body
+    if (phone) {
+        phone=encrypt(phone)
+    }
+    const user = await db_service.findOneAndUpdate({
+        model:userModel,
+        filter:{_id:req.user._id},
+        update:{firstName,lastName,gender,age,phone}
+    })
+    if (!user) {
+        throw new Error("user not exist");
+    }
+    successeResponsive({res,data:user})
+}
+
+export const updatePassword = async (req,res,next)=>{
+    const {lPassword,nPassword} = req.body
+
+    // console.log(req.user.password);
+    
+    if(!Compare({plainText:lPassword,cipherText:req.user.password})){
+        throw new Error("inValid password");        
+    }
+    
+    const hash = Hash({plainText:nPassword})
+    req.user.password = hash
+    await req.user.save() 
+    successeResponsive({res})
+}
 
 export const refreashToken = async (req,res,next)=>{
     const {authorization} = req.headers
@@ -147,7 +195,10 @@ export const refreashToken = async (req,res,next)=>{
         throw new Error("user Not Found",{cause:409});
     }
 
-    
+    const revokeToken = await db_service.findOne({model:revokeTokenModel,filter:{tokenId:decoded.jti}})
+    if (revokeToken) {
+        throw new Error("inValid token revoked");        
+    }
     const access_token = generateToken({
         payload:{id:user._id,email:user.email},
         secret_key:ACCESS_SECRET_KEY,
@@ -155,5 +206,23 @@ export const refreashToken = async (req,res,next)=>{
     })
 
     successeResponsive({res,data:access_token})
+}
+
+export const logout = async (req,res,next)=>{
+    const {flag} = req.query
+    if (flag === "All") {
+        req.user.changeCredential = new Date()
+        await req.user.save()
+        await del(await keys(revoked_id_token({userId:req.user._id})))
+    }else{
+        await setValue({
+            key:revoked_token({userId:req.user._id,jti:req.decoded.jti}),
+            value:`${req.decoded.jti}`,
+            ttl: req.decoded.exp - Math.floor(Date.now()/1000)
+        })
+    }
+    
+    await req.user.save() 
+    successeResponsive({res})
 }
 

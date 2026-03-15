@@ -26,6 +26,9 @@ userRouter.post("/signup/gmail",US.signUpWithGmail)
 userRouter.post("/signIn",validation(UV.signInSchema),US.signIn)
 userRouter.get("/profile",authentication,authorization([roleEnum.user,roleEnum.admin]),US.getProfile)
 userRouter.get("/share-profile/:id",validation(UV.shareProfileSchema),US.shareProfile)
+userRouter.patch("/update-profile",validation(UV.updateProfileSchema),authentication,US.updateProfile)
+userRouter.patch("/update-password",validation(UV.updatePasswordSchema),authentication,US.updatePassword)
 userRouter.get("/refresh-token",US.refreashToken)
+userRouter.post("/logout",authentication,US.logout)
 
 export default userRouter
