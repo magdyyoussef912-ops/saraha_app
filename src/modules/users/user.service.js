@@ -9,8 +9,9 @@ import { generateToken, verifyToken } from "../../common/utils/token.service.js"
 import { ACCESS_SECRET_KEY, PREFIX, REFRESH_SECRET_KEY } from '../../../config/config.service.js';
 import {randomUUID} from "crypto"
 import revokeTokenModel from '../../DB/models/revokeToken.js';
-import { del, get, keys, revoked_id_token, revoked_token, setValue } from '../../DB/redis/redis.service.js';
+import { block_otp_key, del, get, keys, max_otp_key, otp_key, revoked_id_token, revoked_token, setValue, ttl } from '../../DB/redis/redis.service.js';
 import cloudinary from "../../common/utils/cloudinary.js"
+import { generateOtp, sendEmail } from '../../common/utils/email/sendEmail.js';
 
 export const signUp =  async(req,res,next)=>{
     const {userName,email,password,cPassword,age,gender,provider,phone} = req.body
@@ -49,7 +50,88 @@ export const signUp =  async(req,res,next)=>{
             profilePicture:{secure_url,public_id},
             // coverPicture:paths
         }})
+
+    const otp =await generateOtp() 
+    await sendEmail({
+        to:email,
+        subject:`Hello ${userName}`,
+        html: `<h1>Hello ${userName} </h1>
+        <p>welcome to sarha app your otp is: ${otp}</p>` 
+    })
+    
+    await setValue({key:otp_key({email}),value:Hash({plainText:`${otp}`}),ttl:60*2})
+    await setValue({key:max_otp_key({email}),value:1,ttl:30})
     successeResponsive({res,message:"Done Create",data:user})
+}
+
+export const confirmEmail = async (req,res,next)=>{
+    const {otp,email} = req.body
+
+    const otpValue = await get(otp_key({email}))
+
+    if (!otpValue) {
+        throw new Error("otp expired");        
+    }
+
+    if (!Compare({plainText:`${otp}`,cipherText:`${otpValue}`})) {
+        throw new Error("inValid otp");        
+    }
+
+    const user = await db_service.findOneAndUpdate({
+        model:userModel,
+        filter:{email,provider:providerEnum.system,confirmed:{$exists:false}},
+        update:{confirmed:true}
+    })
+
+    if (!user) {
+        throw new Error("user Not Exist");        
+    }
+
+    await del(otp_key({email}))
+
+    successeResponsive({res,message:"Email Confirmed Successfully"})
+}
+
+export const resendOtp = async (req,res,next)=>{
+    const {email} = req.body
+
+    const user = await db_service.findOne({
+        model:userModel,
+        filter:{email,provider:providerEnum.system,confirmed:{$exists:false}}
+    })
+
+    if (!user) {
+        throw new Error("user Not Exist");        
+    }
+
+    const isBlocked = await get(block_otp_key({email}))
+    if (isBlocked >0) {
+        throw new Error(`you are blocked, plz try again after ${await ttl (block_otp_key({email}))}`);
+    }
+
+    const otpTTl = await ttl(otp_key({email}))
+    if (otpTTl > 0 ) {
+        throw new Error(`Can't send otp after ${otpTTl} seconds`);        
+    }
+
+    const maxTries = await get(max_otp_key({email}))
+    if (maxTries >=3) {
+        await setValue({key:block_otp_key({email}),value:1,ttl:60*10})
+        throw new Error("you have exceeded the maximum number of tries");
+    }
+
+    const otp =await generateOtp() 
+    await sendEmail({
+        to:email,
+        subject:`Hello ${user.userName}`,
+        html: `<h1>Hello ${user.userName} </h1>
+        <p>welcome to sarha app your otp is: ${otp}</p>` 
+    })
+    
+    await setValue({key:otp_key({email}),value:Hash({plainText:`${otp}`}),ttl:60*2})
+    await Incr(max_otp_key({email}))
+
+    successeResponsive({res,message:"Done"})
 }
 
 export const signUpWithGmail =  async(req,res,next)=>{
@@ -92,7 +174,7 @@ export const signUpWithGmail =  async(req,res,next)=>{
 
 export const signIn = async (req ,res, next)=>{
     const {email , password} = req.body
-    const user = await db_service.findOne({model:userModel,filter:{email,provider:providerEnum.system}})
+    const user = await db_service.findOne({model:userModel,filter:{email,confirmed:{$exists:true},provider:providerEnum.system}})
     if (!user) {
         throw new Error("user Not Found",{cause:409})        
     }

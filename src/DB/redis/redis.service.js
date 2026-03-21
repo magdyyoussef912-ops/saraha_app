@@ -1,11 +1,23 @@
 import { redisClient } from "./redisDB.js";
 
 export const revoked_token = ({userId,jti})=>{
-    rerturn `revoke_token::${userId}::${jti}`
+    return `revoke_token::${userId}::${jti}`
 }
 
 export const revoked_id_token = ({userId})=>{
-    rerturn `revoke_token::${userId}`
+    return `revoke_token::${userId}`
+}
+
+export const otp_key = ({email})=>{
+    return `otp::${email}`
+}
+
+export const max_otp_key = ({email})=>{
+    return `otp::${email}::max_tries`
+}
+
+export const block_otp_key = ({email})=>{
+    return `otp::${email}::block`
 }
 
 

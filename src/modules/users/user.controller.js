@@ -22,12 +22,14 @@ userRouter.post("/signUp",
     validation(UV.signUpSchema),
 US.signUp)  
 
+userRouter.patch("/confirm-email",validation(UV.confirmEmailSChema),US.confirmEmail)             
+userRouter.post("/resendOtp",validation(UV.resendOtpSChema),US.resendOtp)             
 userRouter.post("/signup/gmail",US.signUpWithGmail)             
 userRouter.post("/signIn",validation(UV.signInSchema),US.signIn)
 userRouter.get("/profile",authentication,authorization([roleEnum.user,roleEnum.admin]),US.getProfile)
 userRouter.get("/share-profile/:id",validation(UV.shareProfileSchema),US.shareProfile)
-userRouter.patch("/update-profile",validation(UV.updateProfileSchema),authentication,US.updateProfile)
-userRouter.patch("/update-password",validation(UV.updatePasswordSchema),authentication,US.updatePassword)
+userRouter.patch("/update-profile",authorization([roleEnum.user]),validation(UV.updateProfileSchema),authentication,US.updateProfile)
+userRouter.patch("/update-password",authorization([roleEnum.user]),validation(UV.updatePasswordSchema),authentication,US.updatePassword)
 userRouter.get("/refresh-token",US.refreashToken)
 userRouter.post("/logout",authentication,US.logout)
 

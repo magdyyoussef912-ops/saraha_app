@@ -46,3 +46,16 @@ export const updatePasswordSchema = {
         cPassword:joi.string().valid(joi.ref("nPassword")).required()
     }).required()
 }
+
+export const confirmEmailSChema = {
+    body : joi.object({
+        email:generalRoles.email.required(),
+        otp:joi.string().regex(/^\d{6}$/).required()
+    }).required()
+}
+
+export const resendOtpSChema = {
+    body : joi.object({
+        email:generalRoles.email.required()
+    }).required()
+}
