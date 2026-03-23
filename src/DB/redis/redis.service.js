@@ -20,6 +20,22 @@ export const block_otp_key = ({email})=>{
     return `otp::${email}::block`
 }
 
+export const block_password_key = ({email})=>{
+    return `signin::${email}::block_password`
+}
+
+export const max_pass_key = ({email})=>{
+    return `signin::${email}::max_tries_pass`
+}
+
+export const FA_key = ({email})=>{
+    return `2FA::${email}`
+}
+
+export const login_key = ({email})=>{
+    return `login_key::${email}`
+}
+
 
 export  const  setValue = async ({key,value,ttl})=>{
     try {

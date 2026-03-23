@@ -50,6 +50,7 @@ const userSchema = new mongoose.Schema({
     }],
     changeCredential:Date,
     confirmed:Boolean,
+    twoFactorEnabled:Boolean,
     role:{
         type:String,
         enum:Object.values(roleEnum),

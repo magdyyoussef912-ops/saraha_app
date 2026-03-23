@@ -9,7 +9,7 @@ import { generateToken, verifyToken } from "../../common/utils/token.service.js"
 import { ACCESS_SECRET_KEY, PREFIX, REFRESH_SECRET_KEY } from '../../../config/config.service.js';
 import {randomUUID} from "crypto"
 import revokeTokenModel from '../../DB/models/revokeToken.js';
-import { block_otp_key, del, get, keys, max_otp_key, otp_key, revoked_id_token, revoked_token, setValue, ttl } from '../../DB/redis/redis.service.js';
+import { block_otp_key, block_password_key, del, FA_key, get, keys, login_key, max_otp_key, max_pass_key, otp_key, revoked_id_token, revoked_token, setValue, ttl } from '../../DB/redis/redis.service.js';
 import cloudinary from "../../common/utils/cloudinary.js"
 import { generateOtp, sendEmail } from '../../common/utils/email/sendEmail.js';
 
@@ -172,15 +172,92 @@ export const signUpWithGmail =  async(req,res,next)=>{
     successeResponsive({res,status:201,data:access_token})
 }
 
+export const enable2FA = async (req,res,next)=>{
+    const user = await db_service.findOne({
+        model:userModel,
+        filter:{email:req.user.email,twoFactorEnabled:{$exists:false}}
+    })
+    if (!user) {
+        throw new Error("user Not exist");
+    }
+    const otp = await generateOtp()
+
+    await setValue({key:FA_key({email:req.user.email}),value:Hash({plainText:`${otp}`}),ttl:60*10})
+
+    await sendEmail({
+        to:req.user.email,
+        subject:` welcome in Saraha App`,
+        html: `<h1>hello ${req.user.firstName} ${req.user.lastName} </h1>
+        <p>welcome to sarha app your otp is: ${otp}</p>`  
+    })
+
+    successeResponsive({res,message:"Otp Sent"})
+}
+
+export const confirm2FA = async (req,res,next)=>{
+    const {otp} = req.body
+
+    const otpValue = await get(FA_key({email:req.user.email}))
+    if (!otpValue) {
+        throw new Error("otp Expired");        
+    }
+
+    if (!Compare({plainText:`${otp}`,cipherText:`${otpValue}`})) {
+        throw new Error("inValid otp");
+    }
+
+    const user =  await db_service.findOneAndUpdate({
+        model:userModel,
+        filter:{email:req.user.email,twoFactorEnabled:{$exists:false}},
+        update:{twoFactorEnabled:true}
+    })
+    if (!user) {
+        throw new Error("user Not Exist");
+    }
+
+    await del(FA_key({email:req.user.email}))
+
+    successeResponsive({res,message:"confirm 2Fa succssefully"})
+}
+
 export const signIn = async (req ,res, next)=>{
     const {email , password} = req.body
+
     const user = await db_service.findOne({model:userModel,filter:{email,confirmed:{$exists:true},provider:providerEnum.system}})
     if (!user) {
         throw new Error("user Not Found",{cause:409})        
     }
-    if (!Compare({plainText:password,cipherText:user.password})) {
-        throw new Error("inValid password",{cause:409});        
+
+    const block_password = await get(block_password_key({email}))
+    if (block_password >0) {
+        throw new Error(`you are blocked, plz try again after ${await ttl (block_password_key({email}))} `);
     }
+
+    if (!Compare({plainText:password,cipherText:user.password})) {
+        const max_tries_passw =  await Incr(max_pass_key({email}))
+        if (max_tries_passw >= 5 ) {
+            await setValue({key:block_password_key({email}),value:1,ttl:60*5})
+            throw new Error("you have exceeded the maximum number of tries");
+        }
+        throw new Error("inValid Password",{cause:409});
+    }
+
+    if (user.twoFactorEnabled) {
+        const otp = await generateOtp()
+
+        await setValue({key:login_key({email}),value:Hash({plainText:`${otp}`}),ttl:60*10})
+
+        await sendEmail({
+            to:email,
+            subject:` welcome in Saraha App`,
+            html: `<h1>hello ${user.firstName} ${user.lastName} </h1>
+            <p>welcome to sarha app your confirmOtp is: ${otp}</p>`  
+        })
+
+        successeResponsive({res,message:"Otp Sent"})
+
+    }
+
     const jwtid = randomUUID()
     const access_token = generateToken({
         payload:{id:user._id,email:user.email},
@@ -189,6 +266,7 @@ export const signIn = async (req ,res, next)=>{
             jwtid
         }
     })
+
     const refresh_token = generateToken({
         payload:{id:user._id,email:user.email},
         secret_key:REFRESH_SECRET_KEY,
@@ -196,7 +274,44 @@ export const signIn = async (req ,res, next)=>{
             jwtid
         }
     })
+
+    await del(max_pass_key({email}))
+
     successeResponsive({res,status:200,data:{access_token,refresh_token}})
+}
+
+export const confirmLogin = async (req,res,next)=>{
+    const {otp} = req.body
+
+    const otpValue = await get(login_key({email:req.user.email}))
+    if (!otpValue) {
+        throw new Error("otp Expired");
+    }
+
+    if (!Compare({plainText:`${otp}`,cipherText:`${otpValue}`})) {
+        throw new Error("inValid otp");
+    }
+
+    const jwtid = randomUUID()
+    const access_token = generateToken({
+        payload:{id:req.user._id,email:req.user.email},
+        secret_key:ACCESS_SECRET_KEY,
+        options:{expiresIn:60 * 3,
+            jwtid
+        }
+    })
+
+    const refresh_Token = generateToken({
+        payload:{id:req.user._id},
+        secret_key:REFRESH_SECRET_KEY,
+        options:{expiresIn:"5h",
+            jwtid
+        } 
+    })
+
+    await del(login_key({email:req.user.email}))
+
+    successeResponsive({res,status:201,data:{access_token,refresh_Token}})
 }
 
 export const getProfile = async (req,res,next)=>{
