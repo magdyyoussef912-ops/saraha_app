@@ -10,33 +10,36 @@ import { multer_enum } from "../../common/Enum/multer.enum.js";
 const userRouter =  Router()
 
 
-// local multer
-// userRouter.post("/signUp",
-//     multer_local({costume_file:"users",costume_types:[...multer_enum.image]})
-//     .single("attachment"),
-//     US.signUp)   
-
 // cloudinary || signUp Send Otp
 userRouter.post("/signUp",
     multer_host([...multer_enum.image]).single("attachment"),
-    validation(UV.signUpSchema),
-US.signUp)
-
-// signUp||signIn  With Gmail
-userRouter.post("/signup/gmail",US.signUpWithGmail)             
+    // validation(UV.signUpSchema),
+    US.signUp
+)
+// confirm Email with Otp
+userRouter.patch("/confirm-email",validation(UV.confirmEmailSChema),US.confirmEmail)  
+// resendOtp           
+userRouter.post("/resendOtp",validation(UV.resendOtpSChema),US.resendOtp) 
+// forget Pssword
+userRouter.post("/forget-password",validation(UV.forgetPasswordSChema),US.forgetPassword)
+// reset Password
+userRouter.patch("/reset-password",validation(UV.resetPasswordSChema),US.resetPassword)
 
 // signIn 
 userRouter.post("/signIn",validation(UV.signInSchema),US.signIn)
+
+// signUp || signIn  With Gmail
+userRouter.post("/signup/gmail",US.signUpWithGmail)             
+
+
+
 // enable2FA
 userRouter.post("/enable2FA",authentication,US.enable2FA)
 // confirm2FA
 userRouter.patch("/confirm2FA",authentication,US.confirm2FA)
 // confirm login with 2Fa
 userRouter.post("/confirm-login",authentication,US.confirmLogin)
-// confirm Email with Otp
-userRouter.patch("/confirm-email",validation(UV.confirmEmailSChema),US.confirmEmail)  
-// resendOtp           
-userRouter.post("/resendOtp",validation(UV.resendOtpSChema),US.resendOtp) 
+
 // getProfile   
 userRouter.get("/profile",authentication,authorization([roleEnum.user,roleEnum.admin]),US.getProfile)
 // shareProfile

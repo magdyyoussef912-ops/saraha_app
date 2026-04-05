@@ -10,6 +10,10 @@ export const findOne =async ({model,filter={},populate= [],select=""}={})=>{
     return await model.findOne(filter).populate(populate).select(select)
 }
 
+export const findAll =async ({model,filter={},populate= [],select=""}={})=>{
+    return await model.findAll(filter).populate(populate).select(select)
+}
+
 
 export const findById =async ({model,filter={},select=""}={})=>{
     return await model.findById(filter).select(select)

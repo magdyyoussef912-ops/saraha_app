@@ -2,7 +2,6 @@ import { verifyToken } from "../utils/token.service.js";
 import  * as db_service from "../../DB/DB.service.js"
 import userModel from "../../DB/models/user.model.js";
 import { ACCESS_SECRET_KEY, PREFIX } from "../../../config/config.service.js";
-import revokeTokenModel from "../../DB/models/revokeToken.js";
 import { get, revoked_token } from "../../DB/redis/redis.service.js";
 
 

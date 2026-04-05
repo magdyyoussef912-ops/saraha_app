@@ -59,3 +59,18 @@ export const resendOtpSChema = {
         email:generalRoles.email.required()
     }).required()
 }
+
+export const forgetPasswordSChema = {
+    body : joi.object({
+        email:generalRoles.email.required()
+    }).required()
+}
+
+export const resetPasswordSChema = {
+    body : joi.object({
+        email:generalRoles.email.required(),
+        otp:joi.string().regex(/^\d{6}$/).required(),
+        password:generalRoles.password.required(),
+        cPassword:joi.string().valid(joi.ref("password")).required()
+    }).required()
+}

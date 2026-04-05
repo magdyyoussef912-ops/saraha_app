@@ -8,8 +8,8 @@ export const revoked_id_token = ({userId})=>{
     return `revoke_token::${userId}`
 }
 
-export const otp_key = ({email})=>{
-    return `otp::${email}`
+export const otp_key = ({email,subject})=>{
+    return `otp::${email}::${subject}`
 }
 
 export const max_otp_key = ({email})=>{
@@ -105,5 +105,13 @@ export  const  keys = async (pattern)=>{
         return await redisClient.keys(`${pattern}*`)
     } catch (error) {
         console.log(error,"fail to keys operation");        
+    }
+}
+
+export  const  Incr = async (pattern)=>{
+    try {
+        return await redisClient.incr(pattern)
+    } catch (error) {
+        console.log(error,"fail to Incr operation");        
     }
 }
